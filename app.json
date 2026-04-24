@@ -1,15 +1,19 @@
 {
   "expo": {
     "name": "i10 Diag Pro",
-    "slug": "i10-diagno",
+    "slug": "i10-diagno-2dwi0mboy5p4yvfarwug4",
     "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "splash": { "backgroundColor": "#050810" },
+    "splash": {
+      "backgroundColor": "#050810"
+    },
     "android": {
       "package": "com.i10diag.pro",
-      "adaptiveIcon": { "backgroundColor": "#050810" },
+      "adaptiveIcon": {
+        "backgroundColor": "#050810"
+      },
       "compileSdkVersion": 34,
       "targetSdkVersion": 34,
       "buildToolsVersion": "34.0.0",
