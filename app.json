@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "i10 Diag Pro",
-    "slug": "i10-diagno-2dwi0mboy5p4yvfarwug4",
+    "slug": "i10-diagno",
     "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,9 +14,6 @@
       "adaptiveIcon": {
         "backgroundColor": "#050810"
       },
-      "compileSdkVersion": 34,
-      "targetSdkVersion": 34,
-      "buildToolsVersion": "34.0.0",
       "permissions": [
         "android.permission.BLUETOOTH",
         "android.permission.BLUETOOTH_ADMIN",
@@ -24,12 +21,25 @@
         "android.permission.BLUETOOTH_SCAN",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.INTERNET"
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.ACCESS_WIFI_STATE",
+        "android.permission.CHANGE_WIFI_STATE"
       ]
     },
+    "plugins": [
+      [
+        "@kenjdavidson/with-rn-bluetooth-classic",
+        {
+          "peripheralUsageDescription": "Permet la connexion à l'adaptateur ELM327 Bluetooth",
+          "alwaysUsageDescription": "Permet la connexion à l'adaptateur ELM327 Bluetooth",
+          "protocols": ["com.i10diag.pro"]
+        }
+      ]
+    ],
     "extra": {
       "eas": {
-        "projectId": "d391a78a-e1eb-45fa-9468-735dd602872d"
+        "projectId": "2d130594-7c2c-4ced-99e8-df7744224989"
       }
     }
   }
