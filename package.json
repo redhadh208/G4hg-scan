@@ -19,7 +19,6 @@
     "react-native-safe-area-context": "4.8.2",
     "react-native-gesture-handler": "~2.14.0",
     "react-native-bluetooth-classic": "^1.60.0-rc4",
-    "@kenjdavidson/with-rn-bluetooth-classic": "^1.0.0",
     "@react-native-async-storage/async-storage": "1.21.0",
     "expo-font": "~11.10.3",
     "react-native-tcp-socket": "^6.2.0"
