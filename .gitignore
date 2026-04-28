@@ -1,6 +1,7 @@
 node_modules/
 .expo/
 dist/
-android/
+android/local.properties
 ios/
 *.jks
+*.keystore
