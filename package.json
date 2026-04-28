@@ -5,11 +5,18 @@
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
-    "build:apk": "eas build --platform android --profile preview"
+    "ios": "expo run:ios",
+    "prebuild": "expo prebuild --clean",
+    "build:apk": "cd android && ./gradlew assembleRelease",
+    "build:github": "npx expo prebuild --platform android --clean && cd android && ./gradlew assembleRelease",
+    "clean": "cd android && ./gradlew clean",
+    "lint": "eslint ."
   },
   "dependencies": {
     "expo": "~50.0.0",
     "expo-status-bar": "~1.11.1",
+    "expo-font": "~11.10.3",
+    "expo-system-ui": "~2.9.1",
     "react": "18.2.0",
     "react-native": "0.73.6",
     "@react-navigation/native": "^6.1.9",
@@ -18,13 +25,22 @@
     "react-native-screens": "~3.29.0",
     "react-native-safe-area-context": "4.8.2",
     "react-native-gesture-handler": "~2.14.0",
-    "react-native-bluetooth-classic": "^1.60.0-rc4",
     "@react-native-async-storage/async-storage": "1.21.0",
-    "expo-font": "~11.10.3",
-    "react-native-tcp-socket": "^6.2.0"
+    "react-native-ble-manager": "^11.0.0",
+    "react-native-tcp-socket": "^6.2.0",
+    "react-native-permissions": "^4.1.5",
+    "react-native-reanimated": "~3.6.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.20.0"
+    "@babel/core": "^7.20.0",
+    "eslint": "^8.56.0"
   },
-  "private": true
+  "private": true,
+  "expo": {
+    "install": {
+      "exclude": [
+        "react-native-bluetooth-classic"
+      ]
+    }
+  }
 }
