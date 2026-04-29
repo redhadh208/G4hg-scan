@@ -4,21 +4,20 @@ import com.facebook.react.ReactPackage;
 import com.facebook.react.bridge.NativeModule;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.uimanager.ViewManager;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 public class BluetoothSPPPackage implements ReactPackage {
     @Override
-    public List<NativeModule> createNativeModules(ReactApplicationContext context) {
+    public List<NativeModule> createNativeModules(ReactApplicationContext ctx) {
         List<NativeModule> modules = new ArrayList<>();
-        modules.add(new BluetoothSPPModule(context));
+        modules.add(new BluetoothSPPModule(ctx));
         return modules;
     }
 
     @Override
-    public List<ViewManager> createViewManagers(ReactApplicationContext context) {
+    public List<ViewManager> createViewManagers(ReactApplicationContext ctx) {
         return Collections.emptyList();
     }
 }
