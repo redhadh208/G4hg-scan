@@ -26,6 +26,7 @@
     "react-native-gesture-handler": "~2.14.0",
     "@react-native-async-storage/async-storage": "1.21.0",
     "react-native-ble-manager": "^11.0.0",
+    "react-native-bluetooth-classic": "^1.60.0-rc4",
     "react-native-ble-plx": "^3.1.2",
     "react-native-tcp-socket": "^6.2.0",
     "react-native-permissions": "^4.1.5",
