@@ -6,24 +6,22 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "splash": {
-      "backgroundColor": "#050810"
-    },
+    "splash": { "backgroundColor": "#050810" },
     "android": {
       "package": "com.i10diag.pro",
-      "adaptiveIcon": {
-        "backgroundColor": "#050810"
-      },
+      "adaptiveIcon": { "backgroundColor": "#050810" },
       "permissions": [
         "android.permission.BLUETOOTH",
         "android.permission.BLUETOOTH_ADMIN",
         "android.permission.BLUETOOTH_CONNECT",
         "android.permission.BLUETOOTH_SCAN",
+        "android.permission.BLUETOOTH_ADVERTISE",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.INTERNET",
         "android.permission.ACCESS_NETWORK_STATE",
-        "android.permission.ACCESS_WIFI_STATE"
+        "android.permission.ACCESS_WIFI_STATE",
+        "android.permission.CHANGE_WIFI_STATE"
       ]
     },
     "plugins": [],
