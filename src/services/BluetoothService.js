@@ -1,43 +1,20 @@
-import { Platform, NativeModules, NativeEventEmitter, PermissionsAndroid } from 'react-native';
+import { Platform, PermissionsAndroid, NativeModules } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const { BluetoothNativeModule, UsbSerialModule } = NativeModules;
+const { BluetoothNativeModule } = NativeModules;
 
 class BluetoothService {
   constructor() {
     this.connected = false;
-    this.connectionType = null; // 'bluetooth_spp' | 'bluetooth_ble' | 'wifi' | 'usb'
+    this.connectionMethod = null; // 'native', 'ble-manager', 'ble-plx', 'bluetooth-classic'
+    this.device = null;
     this.socket = null;
-    this.eventEmitter = null;
-    this.listeners = [];
-    this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 3;
-    this.connectionTimeout = 5000;
-    this.elmuuid = '00001101-0000-1000-8000-00805F9B34FB';
   }
 
   // ===== INITIALISATION =====
-  async initialize(type = 'bluetooth_spp') {
-    this.connectionType = type;
-    
-    switch (type) {
-      case 'bluetooth_spp':
-        return await this._initBluetoothSPP();
-      case 'bluetooth_ble':
-        return await this._initBluetoothBLE();
-      case 'wifi':
-        return await this._initWiFi();
-      case 'usb':
-        return await this._initUSB();
-      default:
-        return false;
-    }
-  }
-
-  // ===== BLUETOOTH CLASSIQUE SPP (Votre ELM327 actuel) =====
-  async _initBluetoothSPP() {
+  async initialize() {
     if (Platform.OS !== 'android') {
-      throw new Error('Bluetooth SPP uniquement sur Android');
+      throw new Error('Android uniquement');
     }
 
     const permissions = await PermissionsAndroid.requestMultiple([
@@ -57,366 +34,368 @@ class BluetoothService {
     return true;
   }
 
-  // ===== BLUETOOTH BLE (Adaptateurs modernes) =====
-  async _initBluetoothBLE() {
-    // Utilise react-native-ble-manager ou react-native-ble-plx
-    try {
-      const BleManager = require('react-native-ble-manager').default;
-      await BleManager.start({ showAlert: false });
-      return true;
-    } catch (e) {
-      throw new Error('BLE non disponible: ' + e.message);
-    }
-  }
-
-  // ===== WiFi OBD2 (ELM327 WiFi) =====
-  async _initWiFi() {
-    // Connexion TCP directe
-    return true;
-  }
-
-  // ===== USB OTG =====
-  async _initUSB() {
-    if (Platform.OS !== 'android') {
-      throw new Error('USB OTG uniquement sur Android');
-    }
-    try {
-      if (UsbSerialModule) {
-        return await UsbSerialModule.initialize();
-      }
-      throw new Error('Module USB non disponible');
-    } catch (e) {
-      throw new Error('USB non disponible: ' + e.message);
-    }
-  }
-
-  // ===== SCAN DES APPAREILS =====
+  // ===== SCAN - Essaie TOUTES les méthodes =====
   async scanDevices() {
-    switch (this.connectionType) {
-      case 'bluetooth_spp':
-        return await this._scanBluetoothSPP();
-      case 'bluetooth_ble':
-        return await this._scanBluetoothBLE();
-      case 'wifi':
-        return await this._scanWiFiDevices();
-      case 'usb':
-        return await this._scanUSBDevices();
-      default:
-        return [];
-    }
-  }
+    const allDevices = [];
 
-  async _scanBluetoothSPP() {
-    if (Platform.OS === 'android' && BluetoothNativeModule) {
-      try {
-        const devices = await BluetoothNativeModule.getPairedDevices();
-        return devices
-          .filter(d => {
-            const name = (d.name || '').toUpperCase();
-            return name.includes('OBD') || name.includes('ELM') || 
-                   name.includes('VGATE') || name.includes('VEEPEAK') ||
-                   name.includes('CLKDEVICES') || name.includes('ANDROID') ||
-                   name.includes('CARISTA') || name.includes('OBDLINK');
-          })
-          .map(d => ({
-            id: d.address,
-            name: d.name || 'ELM327',
-            address: d.address,
-            type: 'bluetooth_spp',
-          }));
-      } catch (e) {
-        console.error('Scan SPP error:', e);
-        return [];
-      }
-    }
-    return [];
-  }
-
-  async _scanBluetoothBLE() {
+    // Méthode 1 : Module natif Android (BluetoothManager)
     try {
-      const BleManager = require('react-native-ble-manager').default;
-      const devices = await BleManager.scan([], 5, true);
-      return devices
-        .filter(d => {
-          const name = (d.name || d.advertising?.localName || '').toUpperCase();
-          return name.includes('OBD') || name.includes('ELM') || 
-                 name.includes('BLE') || name.includes('VEEPEAK');
-        })
-        .map(d => ({
-          id: d.id,
-          name: d.name || d.advertising?.localName || 'ELM327 BLE',
-          address: d.id,
-          type: 'bluetooth_ble',
-        }));
+      const nativeDevices = await this._scanNative();
+      allDevices.push(...nativeDevices);
     } catch (e) {
-      console.error('Scan BLE error:', e);
+      console.log('Scan natif échoué:', e.message);
+    }
+
+    // Méthode 2 : react-native-bluetooth-classic
+    try {
+      const classicDevices = await this._scanClassic();
+      allDevices.push(...classicDevices);
+    } catch (e) {
+      console.log('Scan Bluetooth Classique échoué:', e.message);
+    }
+
+    // Méthode 3 : react-native-ble-manager
+    try {
+      const bleDevices = await this._scanBLEManager();
+      allDevices.push(...bleDevices);
+    } catch (e) {
+      console.log('Scan BLE Manager échoué:', e.message);
+    }
+
+    // Méthode 4 : react-native-ble-plx
+    try {
+      const blePlxDevices = await this._scanBLEPlx();
+      allDevices.push(...blePlxDevices);
+    } catch (e) {
+      console.log('Scan BLE Plx échoué:', e.message);
+    }
+
+    // Filtrer ELM327 et dédoublonner
+    const seen = new Set();
+    return allDevices
+      .filter(d => {
+        const name = (d.name || '').toUpperCase();
+        return name.includes('OBD') || name.includes('ELM') || 
+               name.includes('VGATE') || name.includes('VEEPEAK') ||
+               name.includes('CLKDEVICES') || name.includes('ANDROID') ||
+               name.includes('CARISTA') || name.includes('OBDLINK');
+      })
+      .filter(d => {
+        if (seen.has(d.address)) return false;
+        seen.add(d.address);
+        return true;
+      });
+  }
+
+  // Méthode 1 : Bluetooth Android natif via NativeModules
+  async _scanNative() {
+    return new Promise((resolve, reject) => {
+      try {
+        const BluetoothAdapter = require('react-native').NativeModules.BluetoothAdapter;
+        if (!BluetoothAdapter) {
+          resolve([]);
+          return;
+        }
+        
+        // Utiliser l'API Android native pour lister les appareils appairés
+        const { BluetoothModule } = NativeModules;
+        if (BluetoothModule) {
+          BluetoothModule.getBondedDevices((devices) => {
+            resolve(devices || []);
+          });
+        } else {
+          resolve([]);
+        }
+      } catch (e) {
+        resolve([]);
+      }
+    });
+  }
+
+  // Méthode 2 : react-native-bluetooth-classic
+  async _scanClassic() {
+    try {
+      const RNBluetoothClassic = require('react-native-bluetooth-classic');
+      const paired = await RNBluetoothClassic.getBondedDevices();
+      return paired.map(d => ({
+        id: d.address,
+        name: d.name || 'ELM327',
+        address: d.address,
+        method: 'bluetooth-classic',
+      }));
+    } catch (e) {
       return [];
     }
   }
 
-  async _scanWiFiDevices() {
-    return [
-      {
-        id: 'wifi_default',
-        name: 'ELM327 WiFi (192.168.0.10)',
-        address: '192.168.0.10',
-        port: 35000,
-        type: 'wifi',
-      },
-      {
-        id: 'wifi_custom',
-        name: 'ELM327 WiFi (Personnalisé)',
-        address: '192.168.0.74',
-        port: 35000,
-        type: 'wifi',
-      },
-    ];
-  }
-
-  async _scanUSBDevices() {
-    if (UsbSerialModule) {
-      try {
-        return await UsbSerialModule.listDevices();
-      } catch (e) {
-        return [];
-      }
-    }
-    return [];
-  }
-
-  // ===== CONNEXION =====
-  async connect(target, options = {}) {
+  // Méthode 3 : react-native-ble-manager
+  async _scanBLEManager() {
     try {
-      switch (this.connectionType) {
-        case 'bluetooth_spp':
-          await this._connectSPP(target);
-          break;
-        case 'bluetooth_ble':
-          await this._connectBLE(target);
-          break;
-        case 'wifi':
-          await this._connectWiFi(target, options.port || 35000);
-          break;
-        case 'usb':
-          await this._connectUSB(target);
-          break;
-        default:
-          throw new Error('Type de connexion non supporté');
-      }
+      const BleManager = require('react-native-ble-manager').default;
+      await BleManager.start({ showAlert: false });
+      const devices = await BleManager.scan([], 5, true);
+      return devices.map(d => ({
+        id: d.id,
+        name: d.name || d.advertising?.localName || 'ELM327',
+        address: d.id,
+        method: 'ble-manager',
+      }));
+    } catch (e) {
+      return [];
+    }
+  }
 
+  // Méthode 4 : react-native-ble-plx
+  async _scanBLEPlx() {
+    try {
+      const { BleManager } = require('react-native-ble-plx');
+      const manager = new BleManager();
+      
+      return new Promise((resolve) => {
+        const devices = [];
+        
+        manager.startDeviceScan(null, null, (error, device) => {
+          if (error) {
+            resolve(devices);
+            return;
+          }
+          if (device && device.name) {
+            devices.push({
+              id: device.id,
+              name: device.name,
+              address: device.id,
+              method: 'ble-plx',
+            });
+          }
+        });
+
+        setTimeout(() => {
+          manager.stopDeviceScan();
+          resolve(devices);
+        }, 5000);
+      });
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // ===== CONNEXION - Essaie TOUTES les méthodes =====
+  async connect(address, options = {}) {
+    const errors = [];
+
+    // Méthode 1 : Module natif
+    try {
+      await this._connectNative(address);
       this.connected = true;
-      this.reconnectAttempts = 0;
-      await this._initELM327();
+      this.connectionMethod = 'native';
       return true;
     } catch (e) {
-      this.connected = false;
-      
-      // Reconnexion automatique
-      if (this.reconnectAttempts < this.maxReconnectAttempts) {
-        this.reconnectAttempts++;
-        console.log(`Tentative de reconnexion ${this.reconnectAttempts}/${this.maxReconnectAttempts}...`);
-        await this._sleep(1000);
-        return await this.connect(target, options);
+      errors.push({ method: 'native', error: e.message });
+    }
+
+    // Méthode 2 : Bluetooth Classique
+    try {
+      await this._connectClassic(address);
+      this.connected = true;
+      this.connectionMethod = 'bluetooth-classic';
+      return true;
+    } catch (e) {
+      errors.push({ method: 'bluetooth-classic', error: e.message });
+    }
+
+    // Méthode 3 : BLE Manager
+    try {
+      await this._connectBLEManager(address);
+      this.connected = true;
+      this.connectionMethod = 'ble-manager';
+      return true;
+    } catch (e) {
+      errors.push({ method: 'ble-manager', error: e.message });
+    }
+
+    // Méthode 4 : BLE Plx
+    try {
+      await this._connectBLEPlx(address);
+      this.connected = true;
+      this.connectionMethod = 'ble-plx';
+      return true;
+    } catch (e) {
+      errors.push({ method: 'ble-plx', error: e.message });
+    }
+
+    // Toutes les méthodes ont échoué
+    throw new Error(
+      'Aucune méthode de connexion n\'a fonctionné.\n\n' +
+      errors.map(e => `• ${e.method}: ${e.error}`).join('\n')
+    );
+  }
+
+  async _connectNative(address) {
+    return new Promise((resolve, reject) => {
+      try {
+        const { BluetoothModule } = NativeModules;
+        if (!BluetoothModule) {
+          reject(new Error('Module natif non disponible'));
+          return;
+        }
+        BluetoothModule.connect(address, (success) => {
+          if (success) resolve(true);
+          else reject(new Error('Échec connexion native'));
+        });
+      } catch (e) {
+        reject(e);
       }
-      
-      throw e;
-    }
+    });
   }
 
-  async _connectSPP(target) {
-    if (BluetoothNativeModule) {
-      return await BluetoothNativeModule.connect(target);
-    }
-    throw new Error('Module SPP non disponible');
+  async _connectClassic(address) {
+    const RNBluetoothClassic = require('react-native-bluetooth-classic');
+    this.device = await RNBluetoothClassic.connectToDevice(address, {
+      delimiter: '\r',
+      charset: 'ASCII',
+    });
+    return true;
   }
 
-  async _connectBLE(deviceId) {
+  async _connectBLEManager(deviceId) {
     const BleManager = require('react-native-ble-manager').default;
     await BleManager.connect(deviceId);
     await BleManager.retrieveServices(deviceId);
     return true;
   }
 
-  async _connectWiFi(host, port) {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error(`Timeout connexion WiFi: ${host}:${port}`));
-      }, this.connectionTimeout);
-
-      try {
-        const net = require('react-native-tcp-socket');
-        const client = net.createConnection({ host, port }, () => {
-          clearTimeout(timeout);
-          this.socket = client;
-          
-          let buffer = '';
-          client.on('data', (data) => {
-            buffer += data.toString();
-          });
-
-          resolve(true);
-        });
-
-        client.on('error', (err) => {
-          clearTimeout(timeout);
-          reject(err);
-        });
-      } catch (e) {
-        clearTimeout(timeout);
-        reject(e);
-      }
-    });
-  }
-
-  async _connectUSB(device) {
-    if (UsbSerialModule) {
-      return await UsbSerialModule.connect(device);
-    }
-    throw new Error('Module USB non disponible');
-  }
-
-  // ===== INITIALISATION ELM327 =====
-  async _initELM327() {
-    const commands = [
-      'ATZ',    // Reset
-      'ATE0',   // Echo off
-      'ATL0',   // Line feed off
-      'ATH1',   // Headers on
-      'ATS0',   // Spaces off
-      'ATSP0',  // Auto protocol
-      'ATAT1',  // Adaptive timing
-      'ATST32', // Timeout 32ms
-    ];
-
-    for (const cmd of commands) {
-      try {
-        await this.sendCommand(cmd);
-        await this._sleep(60);
-      } catch (e) {
-        console.warn(`Commande AT échouée: ${cmd}`, e.message);
-      }
-    }
+  async _connectBLEPlx(deviceId) {
+    const { BleManager } = require('react-native-ble-plx');
+    const manager = new BleManager();
+    const device = await manager.connectToDevice(deviceId);
+    await device.discoverAllServicesAndCharacteristics();
+    return true;
   }
 
   // ===== ENVOI DE COMMANDE =====
   async sendCommand(cmd) {
     if (!this.connected) throw new Error('Non connecté');
 
-    switch (this.connectionType) {
-      case 'bluetooth_spp':
-        if (BluetoothNativeModule) {
-          return await BluetoothNativeModule.sendCommand(cmd);
-        }
-        break;
-      case 'wifi':
-        if (this.socket) {
-          return await this._sendWiFi(cmd);
-        }
-        break;
+    switch (this.connectionMethod) {
+      case 'native':
+        return await this._sendNative(cmd);
+      case 'bluetooth-classic':
+        return await this._sendClassic(cmd);
       default:
-        throw new Error('Méthode non supportée');
+        throw new Error('Méthode non supportée pour l\'envoi');
     }
-    
-    return null;
   }
 
-  async _sendWiFi(cmd) {
+  async _sendNative(cmd) {
     return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => resolve(''), 3000);
-      let response = '';
-
-      const dataHandler = (data) => {
-        response += data.toString();
-        if (response.includes('>')) {
-          clearTimeout(timeout);
-          this.socket.removeListener('data', dataHandler);
-          resolve(response.replace(/\r/g, '').replace(/>/g, '').trim());
-        }
-      };
-
-      this.socket.on('data', dataHandler);
-      this.socket.write(cmd + '\r');
+      const { BluetoothModule } = NativeModules;
+      if (!BluetoothModule) {
+        reject(new Error('Module natif non disponible'));
+        return;
+      }
+      BluetoothModule.sendCommand(cmd, (response) => {
+        resolve(response);
+      });
     });
   }
 
-  // ===== DÉCONNEXION =====
+  async _sendClassic(cmd) {
+    await this.device.write(cmd + '\r');
+    await this._sleep(150);
+    let data = '';
+    let tries = 0;
+    while (tries < 6) {
+      const avail = await this.device.available();
+      if (avail > 0) {
+        data += await this.device.read();
+        if (data.includes('>')) break;
+      }
+      await this._sleep(60);
+      tries++;
+    }
+    return data.replace(/\r/g, '').replace(/>/g, '').replace(cmd, '').trim();
+  }
+
+  // ===== LECTURE PID =====
+  async readPID(pidCmd) {
+    const raw = await this.sendCommand(pidCmd);
+    if (!raw || raw.includes('NO DATA') || raw.includes('?')) return null;
+    try {
+      const clean = raw.replace(/\s/g, '').toUpperCase();
+      if (!clean.startsWith('41')) return null;
+      const hex = clean.substring(4);
+      const bytes = [];
+      for (let i = 0; i < hex.length; i += 2) {
+        bytes.push(parseInt(hex.substr(i, 2), 16));
+      }
+      return this._calc(pidCmd, bytes);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  _calc(pid, B) {
+    switch (pid) {
+      case '010C': return ((B[0] * 256) + B[1]) / 4;
+      case '0105': return B[0] - 40;
+      case '010F': return B[0] - 40;
+      case '010B': return B[0];
+      case '0111': return (B[0] * 100) / 255;
+      case '0114': return B[0] / 200;
+      case '0115': return B[0] / 200;
+      case '0142': return ((B[0] * 256) + B[1]) / 1000;
+      case '0107': return (B[0] - 128) * (100 / 128);
+      case '0106': return (B[0] - 128) * (100 / 128);
+      case '0104': return (B[0] * 100) / 255;
+      case '010D': return B[0];
+      case '010E': return (B[0] / 2) - 64;
+      case '0110': return ((B[0] * 256) + B[1]) / 100;
+      case '010A': return B[0] * 3;
+      default: return null;
+    }
+  }
+
+  async readAllPIDs() {
+    const pids = [
+      { k: 'rpm', p: '010C' }, { k: 'ect', p: '0105' }, { k: 'iat', p: '010F' },
+      { k: 'map', p: '010B' }, { k: 'tps', p: '0111' }, { k: 'o2', p: '0114' },
+      { k: 'o2b', p: '0115' }, { k: 'batt', p: '0142' }, { k: 'ltft', p: '0107' },
+      { k: 'stft', p: '0106' }, { k: 'load', p: '0104' }, { k: 'speed', p: '010D' },
+      { k: 'timing', p: '010E' }, { k: 'maf', p: '0110' }, { k: 'fuelPressure', p: '010A' },
+    ];
+    const out = {};
+    for (const { k, p } of pids) {
+      out[k] = await this.readPID(p);
+      await this._sleep(40);
+    }
+    return out;
+  }
+
+  async readDTC() {
+    const raw = await this.sendCommand('03');
+    if (!raw || raw.includes('NO DATA')) return [];
+    const codes = [];
+    const parts = raw.replace(/\s/g, '').match(/.{4}/g) || [];
+    for (const p of parts) {
+      if (p === '0000') continue;
+      const map = { '0': 'P0', '1': 'P1', '2': 'P2', '3': 'P3', '4': 'C0', '5': 'C1', '6': 'C2', '7': 'C3', '8': 'B0', '9': 'B1', 'A': 'B2', 'B': 'B3', 'C': 'U0', 'D': 'U1', 'E': 'U2', 'F': 'U3' };
+      codes.push((map[p[0].toUpperCase()] || 'P') + p.substring(1));
+    }
+    return codes;
+  }
+
+  async clearDTC() { return await this.sendCommand('04'); }
+  async readVIN() { return null; }
+
   async disconnect() {
     this.connected = false;
-    
-    switch (this.connectionType) {
-      case 'bluetooth_spp':
-        if (BluetoothNativeModule) {
-          await BluetoothNativeModule.disconnect();
-        }
-        break;
-      case 'wifi':
-        if (this.socket) {
-          this.socket.destroy();
-          this.socket = null;
-        }
-        break;
-    }
+    this.device = null;
   }
 
-  // ===== CONFIGURATION =====
-  setConnectionType(type) {
-    this.connectionType = type;
-  }
+  isConnected() { return this.connected; }
+  getConnectionMethod() { return this.connectionMethod; }
 
-  getConnectionType() {
-    return this.connectionType;
-  }
-
-  setElmUUID(uuid) {
-    this.elmuuid = uuid;
-  }
-
-  getElmUUID() {
-    return this.elmuuid;
-  }
-
-  setMaxReconnectAttempts(attempts) {
-    this.maxReconnectAttempts = attempts;
-  }
-
-  setConnectionTimeout(ms) {
-    this.connectionTimeout = ms;
-  }
-
-  isConnected() {
-    return this.connected;
-  }
-
-  // ===== SAUVEGARDE DES PARAMÈTRES =====
-  async saveConnectionSettings() {
-    const settings = {
-      connectionType: this.connectionType,
-      elmuuid: this.elmuuid,
-      maxReconnectAttempts: this.maxReconnectAttempts,
-      connectionTimeout: this.connectionTimeout,
-    };
-
-    await AsyncStorage.setItem('@i10_connection_settings', JSON.stringify(settings));
-  }
-
-  async loadConnectionSettings() {
-    try {
-      const saved = await AsyncStorage.getItem('@i10_connection_settings');
-      if (saved) {
-        const settings = JSON.parse(saved);
-        this.connectionType = settings.connectionType || 'bluetooth_spp';
-        this.elmuuid = settings.elmuuid || '00001101-0000-1000-8000-00805F9B34FB';
-        this.maxReconnectAttempts = settings.maxReconnectAttempts || 3;
-        this.connectionTimeout = settings.connectionTimeout || 5000;
-      }
-    } catch (e) {
-      console.warn('Erreur chargement paramètres:', e.message);
-    }
-  }
-
-  _sleep(ms) {
-    return new Promise(r => setTimeout(r, ms));
-  }
+  _sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 }
 
 export default new BluetoothService();
