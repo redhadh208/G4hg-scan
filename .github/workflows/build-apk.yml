@@ -6,15 +6,6 @@ on:
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
-    inputs:
-      build_type:
-        description: 'Type de build'
-        required: true
-        default: 'release'
-        type: choice
-        options:
-          - release
-          - debug
 
 jobs:
   build:
@@ -23,29 +14,24 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
       
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v3
         with:
           node-version: '18'
-          cache: 'npm'
       
       - name: Install dependencies
-        run: npm ci
+        run: npm install
       
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v3
         with:
           java-version: '17'
           distribution: 'temurin'
       
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          api-level: 34
-          build-tools: 34.0.0
-          ndk: 25.1.8937393
+        uses: android-actions/setup-android@v2
       
       - name: Prebuild Android
         run: npx expo prebuild --platform android --clean
@@ -54,25 +40,11 @@ jobs:
         run: chmod +x android/gradlew
       
       - name: Build Release APK
-        run: |
-          cd android
-          ./gradlew assembleRelease
+        run: cd android && ./gradlew assembleRelease
       
       - name: Upload APK to Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: app-release
           path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 30
-      
-      - name: Create Release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
-        with:
-          name: Build ${{ github.run_number }}
-          tag_name: build-${{ github.run_number }}
-          files: android/app/build/outputs/apk/release/app-release.apk
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
