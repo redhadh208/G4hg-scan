@@ -9,8 +9,7 @@
     "prebuild": "expo prebuild --clean",
     "build:apk": "cd android && ./gradlew assembleRelease",
     "build:github": "npx expo prebuild --platform android --clean && cd android && ./gradlew assembleRelease",
-    "clean": "cd android && ./gradlew clean",
-    "lint": "eslint ."
+    "clean": "cd android && ./gradlew clean"
   },
   "dependencies": {
     "expo": "~50.0.0",
@@ -27,20 +26,14 @@
     "react-native-gesture-handler": "~2.14.0",
     "@react-native-async-storage/async-storage": "1.21.0",
     "react-native-ble-manager": "^11.0.0",
+    "react-native-ble-plx": "^3.1.2",
+    "react-native-bluetooth-classic": "^1.60.0-rc4",
     "react-native-tcp-socket": "^6.2.0",
     "react-native-permissions": "^4.1.5",
     "react-native-reanimated": "~3.6.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.20.0",
-    "eslint": "^8.56.0"
+    "@babel/core": "^7.20.0"
   },
-  "private": true,
-  "expo": {
-    "install": {
-      "exclude": [
-        "react-native-bluetooth-classic"
-      ]
-    }
-  }
+  "private": true
 }
