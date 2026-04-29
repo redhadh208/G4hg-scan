@@ -17,7 +17,7 @@ import { AppProvider } from './src/context/AppContext';
 import DashboardScreen    from './src/screens/DashboardScreen';
 import ConnectionScreen   from './src/screens/ConnectionScreen';
 import AIScreen           from './src/screens/AIScreen';
-import ('DTCScreen') from '../src/screens/DTCScreen';
+import { DTCScreen } from './src/screens/DTCScreen';
 import CorrectionScreen   from './src/screens/CorrectionScreen';
 import HealthReportScreen from './src/screens/HealthReportScreen';
 import CurrentDataScreen  from './src/screens/CurrentDataScreen';
