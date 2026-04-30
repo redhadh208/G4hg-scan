@@ -49,7 +49,6 @@ public class BluetoothSPPModule extends ReactContextBaseJavaModule {
                 inputStream = socket.getInputStream();
                 outputStream = socket.getOutputStream();
                 connected = true;
-                // Init ELM327
                 String[] cmds = {"ATZ\r", "ATE0\r", "ATL0\r", "ATH1\r", "ATS0\r", "ATSP0\r"};
                 for (String c : cmds) { outputStream.write(c.getBytes()); Thread.sleep(80); }
                 promise.resolve(true);
@@ -87,7 +86,4 @@ public class BluetoothSPPModule extends ReactContextBaseJavaModule {
             promise.resolve(true);
         } catch (Exception e) { promise.reject("ERR", e.getMessage()); }
     }
-
-    @ReactMethod
-    public void isConnected(Promise promise) { promise.resolve(connected); }
 }
